@@ -4,7 +4,7 @@ import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
 
-const currencySchema = z.enum([
+const currencyCodeSchema = z.enum([
   "AUD",
   "BGN",
   "BRL",
@@ -52,7 +52,7 @@ app.get(
   zValidator(
     "param",
     z.object({
-      fromCurrency: currencySchema,
+      fromCurrency: currencyCodeSchema,
     }),
   ),
   async (c) => {
