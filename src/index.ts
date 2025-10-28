@@ -1,42 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
+
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
+import { ecbCurrencyCodeSchema, getEcbRates } from "./ecb";
 
-const currencyCodeSchema = z.enum([
-  "AUD",
-  "BGN",
-  "BRL",
-  "CAD",
-  "CHF",
-  "CNY",
-  "CZK",
-  "DKK",
-  "EUR",
-  "GBP",
-  "HKD",
-  "HUF",
-  "IDR",
-  "ILS",
-  "INR",
-  "ISK",
-  "JPY",
-  "KRW",
-  "MXN",
-  "MYR",
-  "NOK",
-  "NZD",
-  "PHP",
-  "PLN",
-  "RON",
-  "SEK",
-  "SGD",
-  "THB",
-  "TRY",
-  "USD",
-  "ZAR",
-]);
+// ECB does not fetch EUR since it's the base currency
+const currencyCodeSchema = z.enum([...ecbCurrencyCodeSchema.options, "EUR"]);
 
 const app = new Hono();
 
@@ -58,15 +29,25 @@ app.get(
   async (c) => {
     const { fromCurrency } = c.req.valid("param");
 
+    const data = await getEcbRates();
+
+    // Include EUR in the rates object
+    const rates = {
+      ...data.rates,
+      EUR: 1,
+    };
+
+    const baseRate = rates[fromCurrency];
+
+    for (const key of currencyCodeSchema.options) {
+      rates[key] /= baseRate;
+    }
+
     // Dummy exchange rates for demonstration purposes
     return c.json({
       from: fromCurrency,
-      rates: {
-        EUR: 0.85,
-        USD: 1.0,
-        JPY: 110.0,
-      },
-      date: new Date().toISOString().split("T")[0],
+      date: data.date,
+      rates: rates,
     });
   },
 );

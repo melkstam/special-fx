@@ -11,6 +11,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.7.4
         version: 0.7.4(hono@4.10.3)(zod@4.1.12)
+      fast-xml-parser:
+        specifier: ^5.3.0
+        version: 5.3.0
       hono:
         specifier: ^4.10.3
         version: 4.10.3
@@ -469,6 +472,10 @@ packages:
   exsolve@1.0.7:
     resolution: {integrity: sha512-VO5fQUzZtI6C+vx4w/4BWJpg3s/5l+6pRQEHzFRM8WFi4XffSP1Z+4qi7GbjWbvRQEbdIco5mIMq+zX4rPuLrw==}
 
+  fast-xml-parser@5.3.0:
+    resolution: {integrity: sha512-gkWGshjYcQCF+6qtlrqBqELqNqnt4CxruY6UVAWWnqb3DQ6qaNFEIKqzYep1XzHLM/QtrHVCxyPOtTk4LTQ7Aw==}
+    hasBin: true
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -522,6 +529,9 @@ packages:
   stoppable@1.1.0:
     resolution: {integrity: sha512-KXDYZ9dszj6bzvnEMRYvxgeTHU74QBFL54XKtP3nyMuJ81CFYtABZ3bAzL2EdFUaEwJOBOgENyFj3R7oTzDyyw==}
     engines: {node: '>=4', npm: '>=6'}
+
+  strnum@2.1.1:
+    resolution: {integrity: sha512-7ZvoFTiCnGxBtDqJ//Cu6fWtZtc7Y3x+QOirG15wztbdngGSkht27o2pyGWrVy0b4WAy3jbKmnoK6g5VlVNUUw==}
 
   supports-color@10.2.2:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
@@ -892,6 +902,10 @@ snapshots:
 
   exsolve@1.0.7: {}
 
+  fast-xml-parser@5.3.0:
+    dependencies:
+      strnum: 2.1.1
+
   fsevents@2.3.3:
     optional: true
 
@@ -962,6 +976,8 @@ snapshots:
       is-arrayish: 0.3.4
 
   stoppable@1.1.0: {}
+
+  strnum@2.1.1: {}
 
   supports-color@10.2.2: {}
 
