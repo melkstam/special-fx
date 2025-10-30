@@ -55,6 +55,26 @@ interface EcbRateData {
   rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
 }
 
+export async function ecbRatesCacheWrapper(
+  cache: KVNamespace,
+): Promise<EcbRateData> {
+  const cacheKey = "ecb-rates-daily";
+
+  const cachedResponse = await cache.get(cacheKey, { type: "json" });
+  if (cachedResponse) {
+    return cachedResponse as EcbRateData;
+  }
+
+  const ratesData = await getEcbRates();
+
+  // Cache for 12 hours
+  await cache.put(cacheKey, JSON.stringify(ratesData), {
+    expirationTtl: 12 * 60 * 60,
+  });
+
+  return ratesData;
+}
+
 export async function getEcbRates(): Promise<EcbRateData> {
   const a = await fetch(
     "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
