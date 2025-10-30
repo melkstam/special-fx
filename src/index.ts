@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
-import { ecbCurrencyCodeSchema, ecbRatesCacheWrapper s} from "./ecb";
+import { ecbCurrencyCodeSchema, ecbRatesCacheWrapper } from "./ecb";
 import { zValidator } from "./zod-validator";
 
 // ECB does not fetch EUR since it's the base currency

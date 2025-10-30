@@ -50,6 +50,30 @@ const ecbDailyDataSchema = z.object({
   }),
 });
 
+/**
+ * Get the next occurrence of 16:00 CET (Central European Time). This is roughly when the ECB updates its rates.
+ */
+function getNext16CET(): Date {
+  const now = new Date();
+
+  const next16CET = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      15, // 16:00 CET is 15:00 UTC
+      0,
+      0,
+    ),
+  );
+
+  if (now >= next16CET) {
+    next16CET.setUTCDate(next16CET.getUTCDate() + 1);
+  }
+
+  return next16CET;
+}
+
 interface EcbRateData {
   date: string; // YYYY-MM-DD
   rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
@@ -67,9 +91,12 @@ export async function ecbRatesCacheWrapper(
 
   const ratesData = await getEcbRates();
 
-  // Cache for 12 hours
+  // Cache the data until the next 16:00 CET
+  const next16CET = getNext16CET();
+  const expirationTime = Math.floor(next16CET.getTime() / 1000) - 5 * 60; // 5 minutes before next 16:00 CET in seconds since epoch
+
   await cache.put(cacheKey, JSON.stringify(ratesData), {
-    expirationTtl: 12 * 60 * 60,
+    expiration: expirationTime, // Expiration time in seconds since epoch
   });
 
   return ratesData;
