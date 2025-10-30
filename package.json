@@ -6,16 +6,21 @@
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "lint": "biome check",
-    "lint:fix": "biome check --write"
+    "lint:fix": "biome check --write",
+    "test": "vitest",
+    "test:watch": "vitest --watch"
   },
   "dependencies": {
+    "@date-fns/tz": "^1.4.1",
     "@hono/zod-validator": "^0.7.4",
+    "date-fns": "^4.1.0",
     "fast-xml-parser": "^5.3.0",
     "hono": "^4.10.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.1",
+    "vitest": "^4.0.5",
     "wrangler": "^4.4.0"
   }
 }

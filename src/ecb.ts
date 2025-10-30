@@ -1,3 +1,5 @@
+import { TZDate } from "@date-fns/tz";
+import { formatISO, subMinutes } from "date-fns";
 import { XMLParser } from "fast-xml-parser";
 import z from "zod";
 
@@ -33,6 +35,51 @@ export const ecbCurrencyCodeSchema = z.enum([
   "USD",
   "ZAR",
 ]);
+
+/**
+ * Calculate cache options based on current time and latest fetch date.
+ *
+ * The ECB updates rates daily at around 16:00 CET.
+ *
+ * So, if we are after 15:50 CET and don't have today's rates yet, we cache only a short time.
+ *
+ * If we have the most recent rates, we cache until the next 15:50 CET.
+ *
+ * @param now Current timestamp
+ * @param latestFetchDate The date of the latest fetched rates in YYYY-MM-DD format
+ * @returns Cache options for Workers KV
+ */
+export function getCacheOptions(
+  now: Date,
+  latestFetchDate: string,
+): { expirationTtl: number } | { expiration: number } {
+  const nowInCet = new TZDate(now, "Europe/Berlin");
+  const todayUpdateTime = new TZDate(nowInCet);
+  todayUpdateTime.setHours(16, 0, 0, 0); // 16:00 CET today
+  const cutoffTime = subMinutes(todayUpdateTime, 10); // 15:50 CET today
+
+  const haveTodaysRates =
+    formatISO(nowInCet, { representation: "date" }) === latestFetchDate;
+
+  if (!haveTodaysRates && nowInCet >= cutoffTime) {
+    // We are close to update time but don't have today's rates yet. We cache for 5 minutes.
+    const ttlSeconds = 5 * 60;
+    return { expirationTtl: ttlSeconds };
+  }
+
+  // Now, we either have today's rates, or it's not close to update time.
+  // Cache until the next 16:00 CET.
+
+  if (nowInCet >= cutoffTime) {
+    // It's past today's update time, so set to tomorrow 16:00 CET
+    todayUpdateTime.setDate(todayUpdateTime.getDate() + 1);
+  }
+
+  const nextCutoffTime = subMinutes(todayUpdateTime, 10); // 15:50 CET next update day
+
+  // Set expiration to next cutoff time
+  return { expiration: Math.floor(nextCutoffTime.getTime() / 1000) };
+}
 
 const ecbDailyDataSchema = z.object({
   "gesmes:Envelope": z.object({
@@ -73,55 +120,11 @@ export async function ecbRatesCacheWrapper(
   // Fetch fresh data from ECB
   const ratesData = await getEcbRates();
 
-  // Now, cache the data.
-  // ECB updates rates daily around 16:00 CET.
-  // We want to cache the data until just before the next update. Then, we'll use a short TTL to recheck for updates.
-
-  const now = new Date();
-  // 16:00 CET is 15:00 UTC
-  const today16CET = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      15,
-      0,
-      0,
-    ),
-  );
-
-  // Start looking for new updates 10 minutes before 16:00 CET
-  const afterUpdateRange = new Date(today16CET.getTime() - 10 * 60 * 1000);
-  const isNotUpdatedToday = ratesData.date < now.toISOString().split("T")[0];
-
-  if (now >= afterUpdateRange && isNotUpdatedToday) {
-    // If we are in the update range and the data is not updated for today, set a shorter cache expiration
-    await cache.put(cacheKey, JSON.stringify(ratesData), {
-      expirationTtl: 5 * 60, // Expiration time in seconds (5 minutes)
-    });
-  } else {
-    // Cache the data until the next 16:00 CET
-    const next16CET = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        15,
-        0,
-        0,
-      ),
-    );
-
-    if (now >= next16CET) {
-      next16CET.setUTCDate(next16CET.getUTCDate() + 1);
-    }
-
-    const expirationTime = Math.floor(next16CET.getTime() / 1000) - 5 * 60; // 5 minutes before next 16:00 CET in seconds since epoch
-
-    await cache.put(cacheKey, JSON.stringify(ratesData), {
-      expiration: expirationTime, // Expiration time in seconds since epoch
-    });
-  }
+  // Store in cache with appropriate expiration
+  const cacheOptions = getCacheOptions(new Date(), ratesData.date);
+  await cache.put(cacheKey, JSON.stringify(ratesData), {
+    ...cacheOptions,
+  });
 
   return ratesData;
 }
