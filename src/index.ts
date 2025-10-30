@@ -62,7 +62,7 @@ app.get(
   "/currencies",
   cache({
     cacheName: CACHE_NAME,
-    cacheControl: "max-age=3600",
+    cacheControl: "public, max-age=3600, s-maxage=3600",
   }),
   async (c) => {
     return c.json(currencyInformation);
@@ -89,7 +89,7 @@ app.get(
   ),
   cache({
     cacheName: CACHE_NAME,
-    cacheControl: "max-age=300",
+    cacheControl: "public, max-age=300, s-maxage=300",
   }),
   async (c) => {
     const { fromCurrency } = c.req.valid("param");
@@ -143,7 +143,7 @@ app.get(
   ),
   cache({
     cacheName: CACHE_NAME,
-    cacheControl: "max-age=300",
+    cacheControl: "public, max-age=300, s-maxage=300",
   }),
   async (c) => {
     const { fromCurrency, toCurrency } = c.req.valid("param");
