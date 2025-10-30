@@ -67,4 +67,46 @@ app.get(
   },
 );
 
+app.get(
+  "/:fromCurrency/:toCurrency/latest",
+  zValidator(
+    "param",
+    z.object({
+      fromCurrency: currencyCodeSchema,
+      toCurrency: currencyCodeSchema,
+    }),
+  ),
+  zValidator(
+    "query",
+    z.object({
+      amount: z
+        .string()
+        .transform((val) => Number(val))
+        .pipe(z.number())
+        .default(1),
+    }),
+  ),
+  async (c) => {
+    const { fromCurrency, toCurrency } = c.req.valid("param");
+    const { amount } = c.req.valid("query");
+
+    const data = await getEcbRates();
+
+    // Include EUR in the rates object
+    const rates = {
+      ...data.rates,
+      EUR: 1,
+    };
+
+    const rate = (rates[toCurrency] / rates[fromCurrency]) * amount;
+
+    // Dummy exchange rates for demonstration purposes
+    return c.json({
+      from: fromCurrency,
+      date: data.date,
+      rate: rate,
+    });
+  },
+);
+
 export default app;
