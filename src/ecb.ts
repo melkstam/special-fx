@@ -102,6 +102,12 @@ interface EcbRateData {
   rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
 }
 
+// Schema for cached ECB rates
+const ecbRatesCachedSchema = z.object({
+  date: z.iso.date(), // YYYY-MM-DD
+  rates: z.record(ecbCurrencyCodeSchema, z.number()),
+});
+
 /**
  * Fetches ECB rates with caching logic.
  * Caches the rates until 16:00 CET daily, with special handling around update time.
@@ -114,7 +120,12 @@ export async function ecbRatesCacheWrapper(
   // If cached data exists, return it
   const cachedResponse = await cache.get(cacheKey, { type: "json" });
   if (cachedResponse) {
-    return cachedResponse as EcbRateData;
+    const parsedData = ecbRatesCachedSchema.safeParse(cachedResponse);
+    if (parsedData.success) {
+      return parsedData.data;
+    }
+
+    // If cached data is invalid, we proceed to fetch fresh data
   }
 
   // Fetch fresh data from ECB
@@ -122,9 +133,13 @@ export async function ecbRatesCacheWrapper(
 
   // Store in cache with appropriate expiration
   const cacheOptions = getCacheOptions(new Date(), ratesData.date);
-  await cache.put(cacheKey, JSON.stringify(ratesData), {
-    ...cacheOptions,
-  });
+  await cache.put(
+    cacheKey,
+    JSON.stringify(ratesData satisfies z.infer<typeof ecbRatesCachedSchema>),
+    {
+      ...cacheOptions,
+    },
+  );
 
   return ratesData;
 }
