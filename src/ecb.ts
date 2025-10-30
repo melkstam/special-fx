@@ -50,58 +50,85 @@ const ecbDailyDataSchema = z.object({
   }),
 });
 
-/**
- * Get the next occurrence of 16:00 CET (Central European Time). This is roughly when the ECB updates its rates.
- */
-function getNext16CET(): Date {
-  const now = new Date();
-
-  const next16CET = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      15, // 16:00 CET is 15:00 UTC
-      0,
-      0,
-    ),
-  );
-
-  if (now >= next16CET) {
-    next16CET.setUTCDate(next16CET.getUTCDate() + 1);
-  }
-
-  return next16CET;
-}
-
 interface EcbRateData {
   date: string; // YYYY-MM-DD
   rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
 }
 
+/**
+ * Fetches ECB rates with caching logic.
+ * Caches the rates until 16:00 CET daily, with special handling around update time.
+ */
 export async function ecbRatesCacheWrapper(
   cache: KVNamespace,
 ): Promise<EcbRateData> {
   const cacheKey = "ecb-rates-daily";
 
+  // If cached data exists, return it
   const cachedResponse = await cache.get(cacheKey, { type: "json" });
   if (cachedResponse) {
     return cachedResponse as EcbRateData;
   }
 
+  // Fetch fresh data from ECB
   const ratesData = await getEcbRates();
 
-  // Cache the data until the next 16:00 CET
-  const next16CET = getNext16CET();
-  const expirationTime = Math.floor(next16CET.getTime() / 1000) - 5 * 60; // 5 minutes before next 16:00 CET in seconds since epoch
+  // Now, cache the data.
+  // ECB updates rates daily around 16:00 CET.
+  // We want to cache the data until just before the next update. Then, we'll use a short TTL to recheck for updates.
 
-  await cache.put(cacheKey, JSON.stringify(ratesData), {
-    expiration: expirationTime, // Expiration time in seconds since epoch
-  });
+  const now = new Date();
+  // 16:00 CET is 15:00 UTC
+  const today16CET = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      15,
+      0,
+      0,
+    ),
+  );
+
+  // Start looking for new updates 10 minutes before 16:00 CET
+  const afterUpdateRange = new Date(today16CET.getTime() - 10 * 60 * 1000);
+  const isNotUpdatedToday = ratesData.date < now.toISOString().split("T")[0];
+
+  if (now >= afterUpdateRange && isNotUpdatedToday) {
+    // If we are in the update range and the data is not updated for today, set a shorter cache expiration
+    await cache.put(cacheKey, JSON.stringify(ratesData), {
+      expirationTtl: 5 * 60, // Expiration time in seconds (5 minutes)
+    });
+  } else {
+    // Cache the data until the next 16:00 CET
+    const next16CET = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        15,
+        0,
+        0,
+      ),
+    );
+
+    if (now >= next16CET) {
+      next16CET.setUTCDate(next16CET.getUTCDate() + 1);
+    }
+
+    const expirationTime = Math.floor(next16CET.getTime() / 1000) - 5 * 60; // 5 minutes before next 16:00 CET in seconds since epoch
+
+    await cache.put(cacheKey, JSON.stringify(ratesData), {
+      expiration: expirationTime, // Expiration time in seconds since epoch
+    });
+  }
 
   return ratesData;
 }
 
+/**
+ * Get the latest rates from ECB
+ */
 export async function getEcbRates(): Promise<EcbRateData> {
   const a = await fetch(
     "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
