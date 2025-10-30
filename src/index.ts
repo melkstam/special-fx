@@ -26,8 +26,19 @@ app.get(
       fromCurrency: currencyCodeSchema,
     }),
   ),
+  zValidator(
+    "query",
+    z.object({
+      amount: z
+        .string()
+        .transform((val) => Number(val))
+        .pipe(z.number())
+        .default(1),
+    }),
+  ),
   async (c) => {
     const { fromCurrency } = c.req.valid("param");
+    const { amount } = c.req.valid("query");
 
     const data = await getEcbRates();
 
@@ -41,6 +52,10 @@ app.get(
 
     for (const key of currencyCodeSchema.options) {
       rates[key] /= baseRate;
+    }
+
+    for (const key of currencyCodeSchema.options) {
+      rates[key] *= amount;
     }
 
     // Dummy exchange rates for demonstration purposes
