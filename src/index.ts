@@ -1,10 +1,9 @@
-import { zValidator } from "@hono/zod-validator";
-
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
 import { ecbCurrencyCodeSchema, getEcbRates } from "./ecb";
+import { zValidator } from "./zod-validator";
 
 // ECB does not fetch EUR since it's the base currency
 const currencyCodeSchema = z.enum([...ecbCurrencyCodeSchema.options, "EUR"]);
