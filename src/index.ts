@@ -102,6 +102,7 @@ app.get(
     // Dummy exchange rates for demonstration purposes
     return c.json({
       from: fromCurrency,
+      to: toCurrency,
       date: data.date,
       rate: rate,
     });
