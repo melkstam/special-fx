@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "fx-api",
+  "name": "specialfx",
   "main": "src/index.ts",
   "compatibility_date": "2025-10-28",
   "kv_namespaces": [
