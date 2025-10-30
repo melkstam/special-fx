@@ -8,7 +8,7 @@ import { zValidator } from "./zod-validator";
 // ECB does not fetch EUR since it's the base currency
 const currencyCodeSchema = z.enum([...ecbCurrencyCodeSchema.options, "EUR"]);
 
-const app = new Hono();
+const app = new Hono<{ Bindings: Cloudflare.Env }>();
 
 app.use(prettyJSON());
 app.use(requestId());
