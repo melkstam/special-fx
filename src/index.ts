@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { cache } from "hono/cache";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
@@ -58,16 +57,9 @@ const app = new Hono<{ Bindings: Cloudflare.Env }>();
 app.use(prettyJSON());
 app.use(requestId());
 
-app.get(
-  "/currencies",
-  cache({
-    cacheName: CACHE_NAME,
-    cacheControl: "public, max-age=3600, s-maxage=3600",
-  }),
-  async (c) => {
-    return c.json(currencyInformation);
-  },
-);
+app.get("/currencies", async (c) => {
+  return c.json(currencyInformation);
+});
 
 app.get(
   "/:fromCurrency/latest",
@@ -87,10 +79,6 @@ app.get(
         .default(1),
     }),
   ),
-  cache({
-    cacheName: CACHE_NAME,
-    cacheControl: "public, max-age=300, s-maxage=300",
-  }),
   async (c) => {
     const { fromCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
@@ -113,7 +101,6 @@ app.get(
       rates[key] *= amount;
     }
 
-    // Dummy exchange rates for demonstration purposes
     return c.json({
       from: fromCurrency,
       date: data.date,
@@ -141,10 +128,6 @@ app.get(
         .default(1),
     }),
   ),
-  cache({
-    cacheName: CACHE_NAME,
-    cacheControl: "public, max-age=300, s-maxage=300",
-  }),
   async (c) => {
     const { fromCurrency, toCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
@@ -159,7 +142,6 @@ app.get(
 
     const rate = (rates[toCurrency] / rates[fromCurrency]) * amount;
 
-    // Dummy exchange rates for demonstration purposes
     return c.json({
       from: fromCurrency,
       to: toCurrency,
