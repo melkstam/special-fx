@@ -3,11 +3,7 @@ import { cache } from "hono/cache";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
-import {
-  ecbCurrencyCodeSchema,
-  ecbRatesCacheWrapper,
-  getEcbRates,
-} from "./ecb";
+import { ecbCurrencyCodeSchema, getEcbRates } from "./ecb";
 import { zValidator } from "./zod-validator";
 
 const CACHE_NAME = "specialfx";

@@ -4,7 +4,7 @@ import app from "./index";
 
 // Mock the ECB module to avoid external API calls
 vi.mock("./ecb", () => ({
-  ecbRatesCacheWrapper: vi.fn().mockResolvedValue({
+  getEcbRates: vi.fn().mockResolvedValue({
     date: "2024-06-04",
     rates: {
       AUD: 1.6235,
