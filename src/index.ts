@@ -3,7 +3,11 @@ import { cache } from "hono/cache";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
-import { ecbCurrencyCodeSchema, ecbRatesCacheWrapper } from "./ecb";
+import {
+  ecbCurrencyCodeSchema,
+  ecbRatesCacheWrapper,
+  getEcbRates,
+} from "./ecb";
 import { zValidator } from "./zod-validator";
 
 const CACHE_NAME = "specialfx";
@@ -95,7 +99,7 @@ app.get(
     const { fromCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
 
-    const data = await ecbRatesCacheWrapper(c.env.CACHE);
+    const data = await getEcbRates();
 
     // Include EUR in the rates object
     const rates = {
@@ -149,7 +153,7 @@ app.get(
     const { fromCurrency, toCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
 
-    const data = await ecbRatesCacheWrapper(c.env.CACHE);
+    const data = await getEcbRates();
 
     // Include EUR in the rates object
     const rates = {
