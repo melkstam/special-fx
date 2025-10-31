@@ -148,8 +148,9 @@ export async function getEcbRates(): Promise<EcbRateData> {
     },
   );
 
-  cache.if(!a.ok);
-  throw new Error("Failed to fetch ECB rates");
+  if (!a.ok) {
+    throw new Error("Failed to fetch ECB rates");
+  }
 
   const xmlData = await a.text();
   const parser = new XMLParser({ ignoreAttributes: false });
