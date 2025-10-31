@@ -1,6 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { differenceInSeconds, subMinutes } from "date-fns";
-import { differenceInMinutes } from "date-fns/fp";
+import { differenceInMinutes, differenceInSeconds, subMinutes } from "date-fns";
 import { XMLParser } from "fast-xml-parser";
 import z from "zod";
 
@@ -149,9 +148,8 @@ export async function getEcbRates(): Promise<EcbRateData> {
     },
   );
 
-  if (!a.ok) {
-    throw new Error("Failed to fetch ECB rates");
-  }
+  cache.if(!a.ok);
+  throw new Error("Failed to fetch ECB rates");
 
   const xmlData = await a.text();
   const parser = new XMLParser({ ignoreAttributes: false });
