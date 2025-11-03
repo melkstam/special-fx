@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
-import { ecbCurrencyCodeSchema, getEcbRates } from "./ecb";
+import { ecbCurrencyCodeSchema, getEcbCacheTtl, getEcbRates } from "./ecb";
 import { zValidator } from "./zod-validator";
 
 // ECB does not fetch EUR since it's the base currency
@@ -60,7 +60,25 @@ app.get(
   "/currencies",
 
   async (c) => {
-    return c.json(currencyInformation);
+    const cacheKey = new Request(c.req.url);
+    const cachedResponse = await caches.default.match(cacheKey);
+
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
+    const response = c.json(currencyInformation);
+
+    // Cache currencies for 24 hours since they don't change often
+    const ttl = 24 * 60 * 60; // 24 hours
+    response.headers.set(
+      "Cache-Control",
+      `public, max-age=${ttl}, s-maxage=${ttl}`,
+    );
+
+    await caches.default.put(cacheKey, response.clone());
+
+    return response;
   },
 );
 
@@ -84,6 +102,13 @@ app.get(
   ),
 
   async (c) => {
+    const cacheKey = new Request(c.req.url);
+    const cachedResponse = await caches.default.match(cacheKey);
+
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
     const { fromCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
 
@@ -105,12 +130,24 @@ app.get(
       rates[key] *= amount;
     }
 
-    // Dummy exchange rates for demonstration purposes
-    return c.json({
+    const response = c.json({
       from: fromCurrency,
       date: data.date,
       rates: rates,
     });
+
+    // Use ECB cache TTL based on last modified date
+    const ttl = data.lastModified
+      ? getEcbCacheTtl(new Date(), data.lastModified)
+      : 3600;
+    response.headers.set(
+      "Cache-Control",
+      `public, max-age=${ttl}, s-maxage=${ttl}`,
+    );
+
+    await caches.default.put(cacheKey, response.clone());
+
+    return response;
   },
 );
 
@@ -135,6 +172,13 @@ app.get(
   ),
 
   async (c) => {
+    const cacheKey = new Request(c.req.url);
+    const cachedResponse = await caches.default.match(cacheKey);
+
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
     const { fromCurrency, toCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
 
@@ -148,13 +192,25 @@ app.get(
 
     const rate = (rates[toCurrency] / rates[fromCurrency]) * amount;
 
-    // Dummy exchange rates for demonstration purposes
-    return c.json({
+    const response = c.json({
       from: fromCurrency,
       to: toCurrency,
       date: data.date,
       rate: rate,
     });
+
+    // Use ECB cache TTL based on last modified date
+    const ttl = data.lastModified
+      ? getEcbCacheTtl(new Date(), data.lastModified)
+      : 3600;
+    response.headers.set(
+      "Cache-Control",
+      `public, max-age=${ttl}, s-maxage=${ttl}`,
+    );
+
+    await caches.default.put(cacheKey, response.clone());
+
+    return response;
   },
 );
 
