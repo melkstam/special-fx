@@ -1,12 +1,10 @@
 import { Hono } from "hono";
-import { cache } from "hono/cache";
+
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
 import { ecbCurrencyCodeSchema, getEcbRates } from "./ecb";
 import { zValidator } from "./zod-validator";
-
-const CACHE_NAME = "specialfx";
 
 // ECB does not fetch EUR since it's the base currency
 const currencyCodeSchema = z.enum([...ecbCurrencyCodeSchema.options, "EUR"]);
@@ -60,10 +58,7 @@ app.use(requestId());
 
 app.get(
   "/currencies",
-  cache({
-    cacheName: CACHE_NAME,
-    cacheControl: "public, max-age=3600, s-maxage=3600",
-  }),
+
   async (c) => {
     return c.json(currencyInformation);
   },
@@ -87,10 +82,7 @@ app.get(
         .default(1),
     }),
   ),
-  cache({
-    cacheName: CACHE_NAME,
-    cacheControl: "public, max-age=300, s-maxage=300",
-  }),
+
   async (c) => {
     const { fromCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
@@ -141,10 +133,7 @@ app.get(
         .default(1),
     }),
   ),
-  cache({
-    cacheName: CACHE_NAME,
-    cacheControl: "public, max-age=300, s-maxage=300",
-  }),
+
   async (c) => {
     const { fromCurrency, toCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");

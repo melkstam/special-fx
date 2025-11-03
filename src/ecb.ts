@@ -1,5 +1,10 @@
 import { TZDate } from "@date-fns/tz";
-import { differenceInMinutes, differenceInSeconds, subMinutes } from "date-fns";
+import {
+  add,
+  differenceInMinutes,
+  differenceInSeconds,
+  subMinutes,
+} from "date-fns";
 import { XMLParser } from "fast-xml-parser";
 import z from "zod";
 
@@ -99,6 +104,7 @@ const ecbDailyDataSchema = z.object({
 
 interface EcbRateData {
   date: string; // YYYY-MM-DD
+  lastModified: Date | undefined;
   rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
 }
 
@@ -107,52 +113,36 @@ interface EcbRateData {
  *
  * The ECB updates rates daily at around 16:00 CET.
  *
- * So, if we are after 15:50 CET and don't have today's rates yet, we cache only a short time.
- *
- * If we have the most recent rates, we cache until the next 15:50 CET.
+ * So, if now is between last modified and 15:50 CET, we cache until 15:50 CET.
+ * If now is after the first 15:50 CET after last modified, we cache until next day's 15:50 CET.
  *
  * @param now Current timestamp
- * @param latestFetchDate The date of the latest fetched rates in YYYY-MM-DD format
+ * @param lastModified The date of last updated
  * @returns Cache options for Workers KV
  */
-export function getEcbCacheTtl(now: Date): number {
+export function getEcbCacheTtl(now: Date, lastModified: Date): number {
   const nowInCet = new TZDate(now, "Europe/Berlin");
-  const todayUpdateTime = new TZDate(nowInCet);
-  todayUpdateTime.setHours(16, 0, 0, 0); // 16:00 CET today
 
-  if (Math.abs(differenceInMinutes(todayUpdateTime, now)) <= 10) {
-    return 60;
+  const lastModifiedInCet = new TZDate(lastModified, "Europe/Berlin");
+  const cutoffAfterLastModified = add(lastModifiedInCet, { days: 1 });
+  cutoffAfterLastModified.setHours(15, 50, 0, 0);
+
+  if (nowInCet < cutoffAfterLastModified) {
+    // We are before the first cutoff time after last modified, then cache until next cutoff
+    return differenceInSeconds(cutoffAfterLastModified, nowInCet);
   }
 
-  const nextUpdateTime = new TZDate(todayUpdateTime);
-  if (nowInCet >= todayUpdateTime) {
-    nextUpdateTime.setDate(nextUpdateTime.getDate() + 1);
-  }
-  const nextCutoffTime = subMinutes(nextUpdateTime, 10); // 15:50 CET next update day
-
-  return differenceInSeconds(nextCutoffTime, nowInCet);
+  // If we are passed the cutoff time, we only cache a short time (1 minute) in preparation for the next update
+  return 60;
 }
 
 /**
  * Get the latest rates from ECB, cached.
  */
 export async function getEcbRates(): Promise<EcbRateData> {
-  const cacheTtl = getEcbCacheTtl(new Date());
+  const res = await ecbRatesCached();
 
-  const a = await fetch(
-    "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
-    {
-      cf: {
-        cacheTtl,
-      },
-    },
-  );
-
-  if (!a.ok) {
-    throw new Error("Failed to fetch ECB rates");
-  }
-
-  const xmlData = await a.text();
+  const xmlData = await res.text();
   const parser = new XMLParser({ ignoreAttributes: false });
   const jsonData = parser.parse(xmlData);
 
@@ -162,8 +152,46 @@ export async function getEcbRates(): Promise<EcbRateData> {
     a["@_currency"].localeCompare(b["@_currency"]),
   ).map((rate) => [rate["@_currency"], rate["@_rate"]]);
 
+  const lastModifiedHeader = res.headers.get("Last-Modified");
+  const lastModified = lastModifiedHeader
+    ? new Date(lastModifiedHeader)
+    : undefined;
+
   return {
     date: ratesData["gesmes:Envelope"].Cube.Cube["@_time"],
+    lastModified: lastModified,
     rates: Object.fromEntries(ratesList),
   };
+}
+
+/**
+ * Fetches the ECB rates, with a cache
+ */
+async function ecbRatesCached(): Promise<Response> {
+  const requestUrl =
+    "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
+
+  const cacheRes = await caches.default.match(requestUrl);
+  if (cacheRes) {
+    return cacheRes;
+  }
+
+  const res = await fetch(requestUrl);
+  if (!res.ok) {
+    throw new Error("Failed to fetch ECB rates");
+  }
+
+  const response = new Response(res.body, res);
+
+  const lastModifiedHeader = res.headers.get("Last-Modified");
+  const lastModified = lastModifiedHeader
+    ? new Date(lastModifiedHeader)
+    : new Date();
+
+  const cacheTtl = getEcbCacheTtl(new Date(), lastModified);
+  response.headers.set("Cache-Control", `public, s-maxage=${cacheTtl}`);
+
+  await caches.default.put(requestUrl, response.clone());
+
+  return response;
 }
