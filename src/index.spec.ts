@@ -1,5 +1,5 @@
 import { createExecutionContext, env } from "cloudflare:test";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import app from "./index";
 
 // Mock the ECB module to avoid external API calls
