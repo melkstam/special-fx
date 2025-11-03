@@ -12,7 +12,8 @@ import {
 } from "./ecb";
 import { zValidator } from "./zod-validator";
 
-// ECB does not fetch EUR since it's the base currency
+// ECB does not include EUR in their data since it's the base currency (always 1.0)
+// We add it to our schema to support EUR in API requests
 const currencyCodeSchema = z.enum([...ecbCurrencyCodeSchema.options, "EUR"]);
 const historicalCurrencyCodeSchema = z.enum([
   ...ecbHistoricalCurrencyCodeSchema.options,
@@ -24,6 +25,7 @@ interface CurrencyInformation {
   name: string;
 }
 
+// Static currency information mapping - provides human-readable names for currency codes
 const currencyInformation = {
   AUD: { code: "AUD", name: "Australian Dollar" },
   BGN: { code: "BGN", name: "Bulgarian Lev" },
@@ -66,6 +68,7 @@ const app = new Hono<{ Bindings: Cloudflare.Env }>();
 app.use(prettyJSON());
 app.use(requestId());
 
+// GET /currencies - Returns all available currencies with their codes and names
 app.get(
   "/currencies",
 
@@ -91,6 +94,8 @@ app.get(
   },
 );
 
+// GET /:fromCurrency/latest - Returns latest exchange rates from a base currency to all others
+// Query param: amount (optional, default 1) - multiplies all rates by this amount
 app.get(
   "/:fromCurrency/latest",
   zValidator(
@@ -122,18 +127,22 @@ app.get(
 
     const data = await getEcbRates();
 
-    // Include EUR in the rates object
+    // ECB rates are always relative to EUR, so we add EUR=1 to complete the set
     const rates = {
       ...data.rates,
       EUR: 1,
     };
 
+    // Convert from EUR-based rates to fromCurrency-based rates
+    // If fromCurrency is USD and USD rate is 1.1, then 1 USD = 1/1.1 EUR
     const baseRate = rates[fromCurrency];
 
+    // Divide all rates by the base rate to get rates relative to fromCurrency
     for (const key of currencyCodeSchema.options) {
       rates[key] /= baseRate;
     }
 
+    // Apply the amount multiplier to all rates
     for (const key of currencyCodeSchema.options) {
       rates[key] *= amount;
     }
@@ -163,6 +172,8 @@ app.get(
   },
 );
 
+// GET /:fromCurrency/:toCurrency/latest - Returns latest exchange rate between two specific currencies
+// Query param: amount (optional, default 1) - amount to convert
 app.get(
   "/:fromCurrency/:toCurrency/latest",
   zValidator(
@@ -195,12 +206,13 @@ app.get(
 
     const data = await getEcbRates();
 
-    // Include EUR in the rates object
+    // ECB rates are always relative to EUR, so we add EUR=1 to complete the set
     const rates = {
       ...data.rates,
       EUR: 1,
     };
 
+    // Calculate cross-currency rate: (toCurrency/EUR) / (fromCurrency/EUR) * amount
     const rate = (rates[toCurrency] / rates[fromCurrency]) * amount;
 
     const response = c.json({
@@ -229,6 +241,9 @@ app.get(
   },
 );
 
+// GET /:fromCurrency/:toCurrency/historical - Returns historical exchange rates between two currencies
+// Returns rates for all available dates as date->rate pairs
+// Note: Uses historicalCurrencyCodeSchema which includes deprecated currencies
 app.get(
   "/:fromCurrency/:toCurrency/historical",
   zValidator(
@@ -260,13 +275,16 @@ app.get(
 
     const data = await getEcbHistoricalRates();
 
+    // Process each day's historical data
     const historicalRates = data.rates.map((dayData) => {
-      // Include EUR in the rates object for each day
+      // ECB rates are always relative to EUR, so we add EUR=1 for each day
       const rates = {
         ...dayData.rates,
         EUR: 1,
       };
 
+      // Calculate rate if both currencies exist for this date, otherwise null
+      // Some historical currencies may not have data for all dates
       const rate =
         rates[toCurrency] && rates[fromCurrency]
           ? (rates[toCurrency] / rates[fromCurrency]) * amount
@@ -281,7 +299,7 @@ app.get(
       rates: Object.fromEntries(historicalRates),
     });
 
-    // Historical data is updated once daily, cache for 24 hours
+    // Historical data is updated once daily by ECB, use smart caching based on update schedule
     const lastModifiedHeader = res.headers.get("Last-Modified");
     const lastModified = lastModifiedHeader
       ? new Date(lastModifiedHeader)
