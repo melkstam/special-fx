@@ -253,11 +253,11 @@ app.get(
   ),
   async (c) => {
     const cacheKey = new Request(c.req.url);
-    // const cachedResponse = await caches.default.match(cacheKey);
+    const cachedResponse = await caches.default.match(cacheKey);
 
-    // if (cachedResponse) {
-    //   return cachedResponse;
-    // }
+    if (cachedResponse) {
+      return cachedResponse;
+    }
 
     const { fromCurrency, toCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");

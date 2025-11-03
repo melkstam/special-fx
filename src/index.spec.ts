@@ -185,6 +185,51 @@ vi.mock("./ecb", () => ({
       "ZAR",
     ],
   },
+  ecbHistoricalCurrencyCodeSchema: {
+    options: [
+      "AUD",
+      "BGN",
+      "BRL",
+      "CAD",
+      "CHF",
+      "CNY",
+      "CYP",
+      "CZK",
+      "DKK",
+      "EEK",
+      "GBP",
+      "HKD",
+      "HRK",
+      "HUF",
+      "IDR",
+      "ILS",
+      "INR",
+      "ISK",
+      "JPY",
+      "KRW",
+      "LTL",
+      "LVL",
+      "MTL",
+      "MXN",
+      "MYR",
+      "NOK",
+      "NZD",
+      "PHP",
+      "PLN",
+      "ROL",
+      "RON",
+      "RUB",
+      "SEK",
+      "SGD",
+      "SIT",
+      "SKK",
+      "THB",
+      "TRL",
+      "TRY",
+      "USD",
+      "ZAR",
+    ],
+  },
 }));
 
 describe("/currencies", () => {
@@ -413,18 +458,16 @@ describe("/:fromCurrency/:toCurrency/historical", () => {
     expect(data).toHaveProperty("from", "USD");
     expect(data).toHaveProperty("to", "EUR");
     expect(data).toHaveProperty("rates");
-    expect(Array.isArray(data.rates)).toBe(true);
-    expect(data.rates.length).toBe(3);
+    expect(typeof data.rates).toBe("object");
+    expect(Object.keys(data.rates).length).toBe(3);
 
-    // Check first rate entry
-    expect(data.rates[0]).toHaveProperty("date", "2024-06-04");
-    expect(data.rates[0]).toHaveProperty("rate");
-    expect(typeof data.rates[0].rate).toBe("number");
+    // Check that we have entries for all dates
+    expect(data.rates).toHaveProperty("2024-06-04");
+    expect(data.rates).toHaveProperty("2024-06-03");
+    expect(data.rates).toHaveProperty("2024-05-31");
 
-    // Check that dates are in descending order (newest first)
-    expect(data.rates[0].date).toBe("2024-06-04");
-    expect(data.rates[1].date).toBe("2024-06-03");
-    expect(data.rates[2].date).toBe("2024-05-31");
+    // Check that rates are numbers
+    expect(typeof data.rates["2024-06-04"]).toBe("number");
   });
 
   test("should handle amount parameter for historical rates", async () => {
@@ -442,9 +485,9 @@ describe("/:fromCurrency/:toCurrency/historical", () => {
     expect(data).toHaveProperty("rates");
 
     // All rates should be multiplied by 100
-    for (const rateEntry of data.rates) {
-      expect(typeof rateEntry.rate).toBe("number");
-      expect(rateEntry.rate).toBeGreaterThan(50); // Should be around 92+ when multiplied by 100
+    for (const rate of Object.values(data.rates)) {
+      expect(typeof rate).toBe("number");
+      expect(rate).toBeGreaterThan(50); // Should be around 92+ when multiplied by 100
     }
   });
 
@@ -464,14 +507,14 @@ describe("/:fromCurrency/:toCurrency/historical", () => {
     expect(res.status).toBe(400);
   });
 
-  test("should cache historical rates with 24 hour TTL", async () => {
+  test("should cache historical rates with ECB cache TTL", async () => {
     const request = new Request("http://localhost/USD/EUR/historical");
     const ctx = createExecutionContext();
     const res = await app.fetch(request, env, ctx);
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe(
-      "public, max-age=86400, s-maxage=86400",
+      "public, max-age=3600, s-maxage=3600",
     );
     expect(res.headers.get("Last-Modified")).toBeTruthy();
   });
@@ -517,8 +560,8 @@ describe("/:fromCurrency/:toCurrency/historical", () => {
     expect(data2.to).toBe("USD");
 
     // Rates should be inverse of each other (approximately)
-    const usdToEurRate = data1.rates[0].rate;
-    const eurToUsdRate = data2.rates[0].rate;
+    const usdToEurRate = data1.rates["2024-06-04"];
+    const eurToUsdRate = data2.rates["2024-06-04"];
     expect(Math.abs(usdToEurRate * eurToUsdRate - 1)).toBeLessThan(0.01);
   });
 
@@ -535,7 +578,7 @@ describe("/:fromCurrency/:toCurrency/historical", () => {
 
     // EUR to USD rate should equal the USD rate from ECB data
     const expectedRate = 1.0847; // USD rate from mock data for 2024-06-04
-    expect(data.rates[0].rate).toBeCloseTo(expectedRate, 4);
+    expect(data.rates["2024-06-04"]).toBeCloseTo(expectedRate, 4);
   });
 
   test("should cache different amounts separately", async () => {
@@ -557,6 +600,9 @@ describe("/:fromCurrency/:toCurrency/historical", () => {
     const data2 = await res2.json();
 
     // Rates should be different (multiplied by amount)
-    expect(data2.rates[0].rate).toBeCloseTo(data1.rates[0].rate * 100, 4);
+    expect(data2.rates["2024-06-04"]).toBeCloseTo(
+      data1.rates["2024-06-04"] * 100,
+      4,
+    );
   });
 });
