@@ -1,5 +1,6 @@
 import { createExecutionContext, env } from "cloudflare:test";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { getEcbHistoricalRates, getEcbRates } from "./ecb";
 import app from "./index";
 
 // Mock the ECB module to avoid external API calls
@@ -280,6 +281,29 @@ describe("/currencies", () => {
     const data2 = await res2.json();
     expect(data1).toEqual(data2);
   });
+
+  test("should verify cache is working properly for currencies endpoint", async () => {
+    const ctx = createExecutionContext();
+    const request = new Request("http://localhost/currencies");
+
+    // First request - should generate response
+    const res1 = await app.fetch(request, env, ctx);
+    expect(res1.status).toBe(200);
+    expect(res1.headers.get("Cache-Control")).toBe(
+      "public, max-age=86400, s-maxage=86400",
+    );
+
+    const data1 = await res1.json();
+    expect(data1).toHaveProperty("EUR");
+    expect(data1).toHaveProperty("USD");
+
+    // Second request with same URL - should serve from cache
+    const res2 = await app.fetch(request.clone(), env, ctx);
+    expect(res2.status).toBe(200);
+
+    const data2 = await res2.json();
+    expect(data1).toEqual(data2);
+  });
 });
 
 describe("/:fromCurrency/latest", () => {
@@ -356,6 +380,37 @@ describe("/:fromCurrency/latest", () => {
 
     // Rates should be different (multiplied by amount)
     expect(data2.rates.EUR).toBe(data1.rates.EUR * 100);
+  });
+
+  test("should verify cache is working properly for latest rates endpoint", async () => {
+    const ctx = createExecutionContext();
+    const request = new Request("http://localhost/USD/latest");
+
+    // Mock the ECB function to track how many times it's called
+    const mockGetEcbRates = vi.mocked(getEcbRates);
+    mockGetEcbRates.mockClear();
+
+    // First request - should call ECB function and cache result
+    const res1 = await app.fetch(request, env, ctx);
+    expect(res1.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(1);
+
+    const data1 = await res1.json();
+    expect(data1).toHaveProperty("rates");
+
+    // Second request with same URL - should serve from cache, not call ECB again
+    const res2 = await app.fetch(request.clone(), env, ctx);
+    expect(res2.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(1); // Still 1, not 2
+
+    const data2 = await res2.json();
+    expect(data1).toEqual(data2);
+
+    // Third request with different currency - should call ECB again
+    const request3 = new Request("http://localhost/EUR/latest");
+    const res3 = await app.fetch(request3, env, ctx);
+    expect(res3.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(2); // Now called twice
   });
 });
 
@@ -434,6 +489,43 @@ describe("/:fromCurrency/:toCurrency/latest", () => {
     expect(data1.to).toBe("EUR");
     expect(data2.from).toBe("EUR");
     expect(data2.to).toBe("USD");
+  });
+
+  test("should verify cache is working properly for specific conversion endpoint", async () => {
+    const ctx = createExecutionContext();
+    const request = new Request("http://localhost/USD/EUR/latest");
+
+    // Mock the ECB function to track how many times it's called
+    const mockGetEcbRates = vi.mocked(getEcbRates);
+    mockGetEcbRates.mockClear();
+
+    // First request - should call ECB function and cache result
+    const res1 = await app.fetch(request, env, ctx);
+    expect(res1.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(1);
+
+    const data1 = await res1.json();
+    expect(data1).toHaveProperty("rate");
+
+    // Second request with same URL - should serve from cache, not call ECB again
+    const res2 = await app.fetch(request.clone(), env, ctx);
+    expect(res2.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(1); // Still 1, not 2
+
+    const data2 = await res2.json();
+    expect(data1).toEqual(data2);
+
+    // Third request with different currency pair - should call ECB again
+    const request3 = new Request("http://localhost/EUR/USD/latest");
+    const res3 = await app.fetch(request3, env, ctx);
+    expect(res3.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(2); // Now called twice
+
+    // Fourth request with different amount but same currencies - should use different cache
+    const request4 = new Request("http://localhost/USD/EUR/latest?amount=100");
+    const res4 = await app.fetch(request4, env, ctx);
+    expect(res4.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(3); // Called again due to different URL
   });
 });
 
@@ -604,5 +696,91 @@ describe("/:fromCurrency/:toCurrency/historical", () => {
       data1.rates["2024-06-04"] * 100,
       4,
     );
+  });
+
+  test("should verify cache is working properly for historical endpoint", async () => {
+    const ctx = createExecutionContext();
+    const request = new Request("http://localhost/USD/EUR/historical");
+
+    // Mock the ECB function to track how many times it's called
+    const mockGetEcbHistoricalRates = vi.mocked(getEcbHistoricalRates);
+    mockGetEcbHistoricalRates.mockClear();
+
+    // First request - should call ECB function and cache result
+    const res1 = await app.fetch(request, env, ctx);
+    expect(res1.status).toBe(200);
+    expect(mockGetEcbHistoricalRates).toHaveBeenCalledTimes(1);
+
+    const data1 = await res1.json();
+    expect(data1).toHaveProperty("rates");
+
+    // Second request with same URL - should serve from cache, not call ECB again
+    const res2 = await app.fetch(request.clone(), env, ctx);
+    expect(res2.status).toBe(200);
+    expect(mockGetEcbHistoricalRates).toHaveBeenCalledTimes(1); // Still 1, not 2
+
+    const data2 = await res2.json();
+    expect(data1).toEqual(data2);
+
+    // Third request with different parameters - should call ECB again
+    const request3 = new Request("http://localhost/EUR/USD/historical");
+    const res3 = await app.fetch(request3, env, ctx);
+    expect(res3.status).toBe(200);
+    expect(mockGetEcbHistoricalRates).toHaveBeenCalledTimes(2); // Now called twice
+  });
+
+  test("should detect if cache retrieval is actually working across all endpoints", async () => {
+    const ctx = createExecutionContext();
+
+    // Clear all mocks to get fresh call counts
+    const mockGetEcbRates = vi.mocked(getEcbRates);
+    const mockGetEcbHistoricalRates = vi.mocked(getEcbHistoricalRates);
+    mockGetEcbRates.mockClear();
+    mockGetEcbHistoricalRates.mockClear();
+
+    // Test currencies endpoint (no ECB calls expected)
+    const currenciesReq = new Request("http://localhost/currencies");
+    const currenciesRes1 = await app.fetch(currenciesReq, env, ctx);
+    const currenciesRes2 = await app.fetch(currenciesReq.clone(), env, ctx);
+
+    expect(currenciesRes1.status).toBe(200);
+    expect(currenciesRes2.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(0);
+    expect(mockGetEcbHistoricalRates).toHaveBeenCalledTimes(0);
+
+    // Test latest rates endpoint
+    const latestReq = new Request("http://localhost/USD/latest");
+    const latestRes1 = await app.fetch(latestReq, env, ctx);
+    const latestRes2 = await app.fetch(latestReq.clone(), env, ctx);
+
+    expect(latestRes1.status).toBe(200);
+    expect(latestRes2.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(1); // Should only be called once due to cache
+    expect(mockGetEcbHistoricalRates).toHaveBeenCalledTimes(0);
+
+    // Test specific conversion endpoint
+    const conversionReq = new Request("http://localhost/USD/EUR/latest");
+    const conversionRes1 = await app.fetch(conversionReq, env, ctx);
+    const conversionRes2 = await app.fetch(conversionReq.clone(), env, ctx);
+
+    expect(conversionRes1.status).toBe(200);
+    expect(conversionRes2.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(2); // Should only be called twice total (once for each different endpoint)
+    expect(mockGetEcbHistoricalRates).toHaveBeenCalledTimes(0);
+
+    // Test historical endpoint
+    const historicalReq = new Request("http://localhost/USD/EUR/historical");
+    const historicalRes1 = await app.fetch(historicalReq, env, ctx);
+    const historicalRes2 = await app.fetch(historicalReq.clone(), env, ctx);
+
+    expect(historicalRes1.status).toBe(200);
+    expect(historicalRes2.status).toBe(200);
+    expect(mockGetEcbRates).toHaveBeenCalledTimes(2); // Should still be 2
+    expect(mockGetEcbHistoricalRates).toHaveBeenCalledTimes(1); // Should only be called once due to cache
+
+    // Verify response data is consistent (cache working)
+    const data1 = await historicalRes1.json();
+    const data2 = await historicalRes2.json();
+    expect(data1).toEqual(data2);
   });
 });

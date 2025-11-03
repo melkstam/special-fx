@@ -70,8 +70,7 @@ app.get(
   "/currencies",
 
   async (c) => {
-    const cacheKey = new Request(c.req.url);
-    const cachedResponse = await caches.default.match(cacheKey);
+    const cachedResponse = await caches.default.match(c.req.raw);
 
     if (cachedResponse) {
       return cachedResponse;
@@ -86,7 +85,7 @@ app.get(
       `public, max-age=${ttl}, s-maxage=${ttl}`,
     );
 
-    await caches.default.put(cacheKey, response.clone());
+    await caches.default.put(c.req.raw, response.clone());
 
     return response;
   },
@@ -112,8 +111,7 @@ app.get(
   ),
 
   async (c) => {
-    const cacheKey = new Request(c.req.url);
-    const cachedResponse = await caches.default.match(cacheKey);
+    const cachedResponse = await caches.default.match(c.req.raw);
 
     if (cachedResponse) {
       return cachedResponse;
@@ -159,7 +157,7 @@ app.get(
       (data.lastModified ?? new Date()).toUTCString(),
     );
 
-    await caches.default.put(cacheKey, response.clone());
+    await caches.default.put(c.req.raw, response.clone());
 
     return response;
   },
@@ -186,8 +184,7 @@ app.get(
   ),
 
   async (c) => {
-    const cacheKey = new Request(c.req.url);
-    const cachedResponse = await caches.default.match(cacheKey);
+    const cachedResponse = await caches.default.match(c.req.raw);
 
     if (cachedResponse) {
       return cachedResponse;
@@ -226,7 +223,7 @@ app.get(
       (data.lastModified ?? new Date()).toUTCString(),
     );
 
-    await caches.default.put(cacheKey, response.clone());
+    await caches.default.put(c.req.raw, response.clone());
 
     return response;
   },
@@ -252,8 +249,7 @@ app.get(
     }),
   ),
   async (c) => {
-    const cacheKey = new Request(c.req.url);
-    const cachedResponse = await caches.default.match(cacheKey);
+    const cachedResponse = await caches.default.match(c.req.raw);
 
     if (cachedResponse) {
       return cachedResponse;
@@ -301,7 +297,7 @@ app.get(
       res.headers.set("Last-Modified", data.lastModified.toUTCString());
     }
 
-    await caches.default.put(cacheKey, res.clone());
+    await caches.default.put(c.req.raw, res.clone());
 
     return res;
   },
