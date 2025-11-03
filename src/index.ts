@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-
+import { etag } from "hono/etag";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
@@ -144,6 +144,10 @@ app.get(
       "Cache-Control",
       `public, max-age=${ttl}, s-maxage=${ttl}`,
     );
+    response.headers.set(
+      "Last-Modified",
+      (data.lastModified ?? new Date()).toUTCString(),
+    );
 
     await caches.default.put(cacheKey, response.clone());
 
@@ -206,6 +210,10 @@ app.get(
     response.headers.set(
       "Cache-Control",
       `public, max-age=${ttl}, s-maxage=${ttl}`,
+    );
+    response.headers.set(
+      "Last-Modified",
+      (data.lastModified ?? new Date()).toUTCString(),
     );
 
     await caches.default.put(cacheKey, response.clone());
