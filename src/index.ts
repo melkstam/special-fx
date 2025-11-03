@@ -5,6 +5,7 @@ import { requestId } from "hono/request-id";
 import z from "zod";
 import {
   ecbCurrencyCodeSchema,
+  ecbHistoricalCurrencyCodeSchema,
   getEcbCacheTtl,
   getEcbHistoricalRates,
   getEcbRates,
@@ -13,6 +14,10 @@ import { zValidator } from "./zod-validator";
 
 // ECB does not fetch EUR since it's the base currency
 const currencyCodeSchema = z.enum([...ecbCurrencyCodeSchema.options, "EUR"]);
+const historicalCurrencyCodeSchema = z.enum([
+  ...ecbHistoricalCurrencyCodeSchema.options,
+  "EUR",
+]);
 
 interface CurrencyInformation {
   code: z.infer<typeof currencyCodeSchema>;
@@ -232,8 +237,8 @@ app.get(
   zValidator(
     "param",
     z.object({
-      fromCurrency: currencyCodeSchema,
-      toCurrency: currencyCodeSchema,
+      fromCurrency: historicalCurrencyCodeSchema,
+      toCurrency: historicalCurrencyCodeSchema,
     }),
   ),
   zValidator(
@@ -246,14 +251,13 @@ app.get(
         .default(1),
     }),
   ),
-
   async (c) => {
     const cacheKey = new Request(c.req.url);
-    const cachedResponse = await caches.default.match(cacheKey);
+    // const cachedResponse = await caches.default.match(cacheKey);
 
-    if (cachedResponse) {
-      return cachedResponse;
-    }
+    // if (cachedResponse) {
+    //   return cachedResponse;
+    // }
 
     const { fromCurrency, toCurrency } = c.req.valid("param");
     const { amount } = c.req.valid("query");
@@ -267,18 +271,18 @@ app.get(
         EUR: 1,
       };
 
-      const rate = (rates[toCurrency] / rates[fromCurrency]) * amount;
+      const rate =
+        rates[toCurrency] && rates[fromCurrency]
+          ? (rates[toCurrency] / rates[fromCurrency]) * amount
+          : null;
 
-      return {
-        date: dayData.date,
-        rate: rate,
-      };
+      return [dayData.date, rate];
     });
 
     const res = c.json({
       from: fromCurrency,
       to: toCurrency,
-      rates: historicalRates,
+      rates: Object.fromEntries(historicalRates),
     });
 
     // Historical data is updated once daily, cache for 24 hours

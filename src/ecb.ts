@@ -36,6 +36,50 @@ export const ecbCurrencyCodeSchema = z.enum([
   "ZAR",
 ]);
 
+export const ecbHistoricalCurrencyCodeSchema = z.enum([
+  "AUD",
+  "BGN",
+  "BRL",
+  "CAD",
+  "CHF",
+  "CNY",
+  "CYP",
+  "CZK",
+  "DKK",
+  "EEK",
+  "GBP",
+  "HKD",
+  "HRK",
+  "HUF",
+  "IDR",
+  "ILS",
+  "INR",
+  "ISK",
+  "JPY",
+  "KRW",
+  "LTL",
+  "LVL",
+  "MTL",
+  "MXN",
+  "MYR",
+  "NOK",
+  "NZD",
+  "PHP",
+  "PLN",
+  "ROL",
+  "RON",
+  "RUB",
+  "SEK",
+  "SGD",
+  "SIT",
+  "SKK",
+  "THB",
+  "TRL",
+  "TRY",
+  "USD",
+  "ZAR",
+]);
+
 const ecbDailyDataSchema = z.object({
   "gesmes:Envelope": z.object({
     Cube: z.object({
@@ -66,7 +110,7 @@ const ecbHistoricalDataSchema = z.object({
           "@_time": z.string(), // YYYY-MM-DD
           Cube: z.array(
             z.object({
-              "@_currency": ecbCurrencyCodeSchema,
+              "@_currency": ecbHistoricalCurrencyCodeSchema,
               "@_rate": z.string().transform((val) => Number(val)),
             }),
           ),
@@ -80,7 +124,9 @@ interface EcbHistoricalRateData {
   lastModified: Date | undefined;
   rates: Array<{
     date: string; // YYYY-MM-DD
-    rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
+    rates: Partial<
+      Record<z.infer<typeof ecbHistoricalCurrencyCodeSchema>, number>
+    >;
   }>;
 }
 
