@@ -3,7 +3,12 @@ import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
-import { ecbCurrencyCodeSchema, getEcbCacheTtl, getEcbRates } from "./ecb";
+import {
+  ecbCurrencyCodeSchema,
+  getEcbCacheTtl,
+  getEcbHistoricalRates,
+  getEcbRates,
+} from "./ecb";
 import { zValidator } from "./zod-validator";
 
 // ECB does not fetch EUR since it's the base currency
@@ -219,6 +224,82 @@ app.get(
     await caches.default.put(cacheKey, response.clone());
 
     return response;
+  },
+);
+
+app.get(
+  "/:fromCurrency/:toCurrency/historical",
+  zValidator(
+    "param",
+    z.object({
+      fromCurrency: currencyCodeSchema,
+      toCurrency: currencyCodeSchema,
+    }),
+  ),
+  zValidator(
+    "query",
+    z.object({
+      amount: z
+        .string()
+        .transform((val) => Number(val))
+        .pipe(z.number())
+        .default(1),
+    }),
+  ),
+
+  async (c) => {
+    const cacheKey = new Request(c.req.url);
+    const cachedResponse = await caches.default.match(cacheKey);
+
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
+    const { fromCurrency, toCurrency } = c.req.valid("param");
+    const { amount } = c.req.valid("query");
+
+    const data = await getEcbHistoricalRates();
+
+    const historicalRates = data.rates.map((dayData) => {
+      // Include EUR in the rates object for each day
+      const rates = {
+        ...dayData.rates,
+        EUR: 1,
+      };
+
+      const rate = (rates[toCurrency] / rates[fromCurrency]) * amount;
+
+      return {
+        date: dayData.date,
+        rate: rate,
+      };
+    });
+
+    const res = c.json({
+      from: fromCurrency,
+      to: toCurrency,
+      rates: historicalRates,
+    });
+
+    // Historical data is updated once daily, cache for 24 hours
+    const lastModifiedHeader = res.headers.get("Last-Modified");
+    const lastModified = lastModifiedHeader
+      ? new Date(lastModifiedHeader)
+      : new Date();
+
+    const cacheTtl = getEcbCacheTtl(new Date(), lastModified);
+    res.headers.set(
+      "Cache-Control",
+      `public, max-age=${cacheTtl}, s-maxage=${cacheTtl}`,
+    );
+
+    if (data.lastModified) {
+      res.headers.set("Last-Modified", data.lastModified.toUTCString());
+    }
+
+    await caches.default.put(cacheKey, res.clone());
+
+    return res;
   },
 );
 

@@ -58,6 +58,32 @@ interface EcbRateData {
   rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
 }
 
+const ecbHistoricalDataSchema = z.object({
+  "gesmes:Envelope": z.object({
+    Cube: z.object({
+      Cube: z.array(
+        z.object({
+          "@_time": z.string(), // YYYY-MM-DD
+          Cube: z.array(
+            z.object({
+              "@_currency": ecbCurrencyCodeSchema,
+              "@_rate": z.string().transform((val) => Number(val)),
+            }),
+          ),
+        }),
+      ),
+    }),
+  }),
+});
+
+interface EcbHistoricalRateData {
+  lastModified: Date | undefined;
+  rates: Array<{
+    date: string; // YYYY-MM-DD
+    rates: Record<z.infer<typeof ecbCurrencyCodeSchema>, number>;
+  }>;
+}
+
 /**
  * Calculate cache options based on current time and latest fetch date.
  *
@@ -129,6 +155,72 @@ async function ecbRatesCached(): Promise<Response> {
   const res = await fetch(requestUrl);
   if (!res.ok) {
     throw new Error("Failed to fetch ECB rates");
+  }
+
+  const response = new Response(res.body, res);
+
+  const lastModifiedHeader = res.headers.get("Last-Modified");
+  const lastModified = lastModifiedHeader
+    ? new Date(lastModifiedHeader)
+    : new Date();
+
+  const cacheTtl = getEcbCacheTtl(new Date(), lastModified);
+  response.headers.set("Cache-Control", `public, s-maxage=${cacheTtl}`);
+
+  await caches.default.put(requestUrl, response.clone());
+
+  return response;
+}
+
+/**
+ * Get historical rates from ECB, cached.
+ */
+export async function getEcbHistoricalRates(): Promise<EcbHistoricalRateData> {
+  const res = await ecbHistoricalRatesCached();
+
+  const xmlData = await res.text();
+  const parser = new XMLParser({ ignoreAttributes: false });
+  const jsonData = parser.parse(xmlData);
+
+  const historicalData = ecbHistoricalDataSchema.parse(jsonData);
+
+  const lastModifiedHeader = res.headers.get("Last-Modified");
+  const lastModified = lastModifiedHeader
+    ? new Date(lastModifiedHeader)
+    : undefined;
+
+  const rates = historicalData["gesmes:Envelope"].Cube.Cube.map((dayData) => {
+    const ratesList = dayData.Cube.sort((a, b) =>
+      a["@_currency"].localeCompare(b["@_currency"]),
+    ).map((rate) => [rate["@_currency"], rate["@_rate"]]);
+
+    return {
+      date: dayData["@_time"],
+      rates: Object.fromEntries(ratesList),
+    };
+  }).sort((a, b) => b.date.localeCompare(a.date)); // Sort by date descending (newest first)
+
+  return {
+    lastModified,
+    rates,
+  };
+}
+
+/**
+ * Fetches the ECB historical rates, with a cache
+ */
+async function ecbHistoricalRatesCached(): Promise<Response> {
+  const requestUrl =
+    "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml";
+
+  const cacheRes = await caches.default.match(requestUrl);
+  if (cacheRes) {
+    return cacheRes;
+  }
+
+  const res = await fetch(requestUrl);
+  if (!res.ok) {
+    throw new Error("Failed to fetch ECB historical rates");
   }
 
   const response = new Response(res.body, res);
