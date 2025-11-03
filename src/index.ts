@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { etag } from "hono/etag";
+
 import { prettyJSON } from "hono/pretty-json";
 import { requestId } from "hono/request-id";
 import z from "zod";
