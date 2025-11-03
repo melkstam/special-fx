@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { add, differenceInSeconds } from "date-fns";
+import { addBusinessDays, differenceInSeconds } from "date-fns";
 import { XMLParser } from "fast-xml-parser";
 import z from "zod";
 
@@ -63,8 +63,8 @@ interface EcbRateData {
  *
  * The ECB updates rates daily at around 16:00 CET.
  *
- * So, if now is between last modified and 15:50 CET, we cache until 15:50 CET.
- * If now is after the first 15:50 CET after last modified, we cache until next day's 15:50 CET.
+ * So, if now is between last modified and the next business day's 15:50 CET, we cache until that cutoff.
+ * If now is after the first business-day cutoff after last modified, we cache for a short window while waiting for the new rates.
  *
  * @param now Current timestamp
  * @param lastModified The date of last updated
@@ -74,7 +74,7 @@ export function getEcbCacheTtl(now: Date, lastModified: Date): number {
   const nowInCet = new TZDate(now, "Europe/Berlin");
 
   const lastModifiedInCet = new TZDate(lastModified, "Europe/Berlin");
-  const cutoffAfterLastModified = add(lastModifiedInCet, { days: 1 });
+  const cutoffAfterLastModified = addBusinessDays(lastModifiedInCet, 1);
   cutoffAfterLastModified.setHours(15, 50, 0, 0);
 
   if (nowInCet < cutoffAfterLastModified) {
