@@ -311,7 +311,6 @@ app.get(
       (data.lastModified ?? new Date()).toUTCString(),
     );
 
-
     await caches.default.put(c.req.raw, response.clone());
 
     return response;
