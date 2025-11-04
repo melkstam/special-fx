@@ -13,7 +13,7 @@ importers:
         version: 1.4.1
       '@hono/zod-validator':
         specifier: ^0.7.4
-        version: 0.7.4(hono@4.10.3)(zod@4.1.12)
+        version: 0.7.4(hono@4.10.4)(zod@4.1.12)
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -21,8 +21,8 @@ importers:
         specifier: ^5.3.1
         version: 5.3.1
       hono:
-        specifier: ^4.10.3
-        version: 4.10.3
+        specifier: ^4.10.4
+        version: 4.10.4
       zod:
         specifier: ^4.1.12
         version: 4.1.12
@@ -726,8 +726,8 @@ packages:
   glob-to-regexp@0.4.1:
     resolution: {integrity: sha512-lkX1HJXwyMcprw/5YUZc2s7DrpAiHB21/V+E1rHUrVNokkvB6bqMzT0VfV6/86ZNabt1k14YOIaT7nDvOX3Iiw==}
 
-  hono@4.10.3:
-    resolution: {integrity: sha512-2LOYWUbnhdxdL8MNbNg9XZig6k+cZXm5IjHn2Aviv7honhBMOHb+jxrKIeJRZJRmn+htUCKhaicxwXuUDlchRA==}
+  hono@4.10.4:
+    resolution: {integrity: sha512-YG/fo7zlU3KwrBL5vDpWKisLYiM+nVstBQqfr7gCPbSYURnNEP9BDxEMz8KfsDR9JX0lJWDRNc6nXX31v7ZEyg==}
     engines: {node: '>=16.9.0'}
 
   is-arrayish@0.3.4:
@@ -1163,9 +1163,9 @@ snapshots:
   '@esbuild/win32-x64@0.25.4':
     optional: true
 
-  '@hono/zod-validator@0.7.4(hono@4.10.3)(zod@4.1.12)':
+  '@hono/zod-validator@0.7.4(hono@4.10.4)(zod@4.1.12)':
     dependencies:
-      hono: 4.10.3
+      hono: 4.10.4
       zod: 4.1.12
 
   '@img/sharp-darwin-arm64@0.33.5':
@@ -1516,7 +1516,7 @@ snapshots:
 
   glob-to-regexp@0.4.1: {}
 
-  hono@4.10.3: {}
+  hono@4.10.4: {}
 
   is-arrayish@0.3.4: {}
 
