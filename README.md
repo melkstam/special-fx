@@ -10,14 +10,14 @@ Get real-time and historical currency exchange rates for major currencies.
 ### Get All Available Currencies
 
 ```bash
-curl https://specialfx.dev/currencies
+curl "https://specialfx.dev/currencies"
 ```
 
 ### Convert Currency (Latest Rates)
 
 ```bash
 # Convert 1 USD to all other currencies
-curl https://specialfx.dev/USD/latest
+curl "https://specialfx.dev/USD/latest"
 
 # Convert 100 EUR to all other currencies
 curl "https://specialfx.dev/EUR/latest?amount=100"
