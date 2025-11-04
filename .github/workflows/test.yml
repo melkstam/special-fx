@@ -14,7 +14,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Use Node.js
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
