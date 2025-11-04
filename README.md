@@ -30,7 +30,7 @@ curl "https://specialfx.dev/GBP/USD/latest?amount=50"
 
 ```bash
 # Get USD to EUR historical rates for the last 90 days
-curl https://specialfx.dev/USD/EUR/historical
+curl "https://specialfx.dev/USD/EUR/historical"
 
 # Convert 1000 USD to EUR for all available historical dates
 curl "https://specialfx.dev/USD/EUR/historical?amount=1000"
