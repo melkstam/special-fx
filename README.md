@@ -1,4 +1,4 @@
-# Special FX API
+# Special FX API 🚥
 
 A fast, reliable foreign exchange rate API powered by Cloudflare Workers and the European Central Bank (ECB) data.
 Get real-time and historical currency exchange rates for major currencies.
@@ -98,7 +98,7 @@ curl "https://specialfx.dev/USD/latest?amount=100"
 ```json
 {
   "from": "USD",
-  "date": "2024-01-15",
+  "date": "2025-11-04",
   "rates": {
     "AUD": 152.50,
     "BGN": 179.85,
@@ -156,7 +156,7 @@ curl "https://specialfx.dev/GBP/USD/latest?amount=500"
 {
   "from": "GBP",
   "to": "USD",
-  "date": "2024-01-15",
+  "date": "2025-11-04",
   "rate": 631.65
 }
 ```
@@ -197,14 +197,14 @@ curl "https://specialfx.dev/USD/EUR/historical?amount=1000"
   "from": "USD",
   "to": "EUR",
   "rates": {
-    "2024-01-15": 921.5,
-    "2024-01-14": 920.8,
-    "2024-01-13": 919.2,
-    "2024-01-12": 918.7,
-    "2024-01-11": 917.9,
-    "2024-01-10": 916.5,
-    "2024-01-09": 915.8,
-    "2024-01-08": 914.2,
+    "2025-11-04": 921.5,
+    "2025-11-03": 920.8,
+    "2025-11-02": 919.2,
+    "2025-11-01": 918.7,
+    "2025-10-31": 917.9,
+    "2025-10-30": 916.5,
+    "2025-10-29": 915.8,
+    "2025-10-28": 914.2,
     "...": "..."
   }
 }
