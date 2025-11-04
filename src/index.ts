@@ -293,31 +293,28 @@ app.get(
       return [dayData.date, rate];
     });
 
-    const res = c.json({
+    const response = c.json({
       from: fromCurrency,
       to: toCurrency,
       rates: Object.fromEntries(historicalRates),
     });
 
-    // Historical data is updated once daily by ECB, use smart caching based on update schedule
-    const lastModifiedHeader = res.headers.get("Last-Modified");
-    const lastModified = lastModifiedHeader
-      ? new Date(lastModifiedHeader)
-      : new Date();
-
-    const cacheTtl = getEcbCacheTtl(new Date(), lastModified);
-    res.headers.set(
+    const ttl = data.lastModified
+      ? getEcbCacheTtl(new Date(), data.lastModified)
+      : 3600;
+    response.headers.set(
       "Cache-Control",
-      `public, max-age=${cacheTtl}, s-maxage=${cacheTtl}`,
+      `public, max-age=${ttl}, s-maxage=${ttl}`,
+    );
+    response.headers.set(
+      "Last-Modified",
+      (data.lastModified ?? new Date()).toUTCString(),
     );
 
-    if (data.lastModified) {
-      res.headers.set("Last-Modified", data.lastModified.toUTCString());
-    }
 
-    await caches.default.put(c.req.raw, res.clone());
+    await caches.default.put(c.req.raw, response.clone());
 
-    return res;
+    return response;
   },
 );
 
