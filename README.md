@@ -47,7 +47,7 @@ Returns all available currencies with their codes and human-readable names.
 {
   "AUD": { "code": "AUD", "name": "Australian Dollar" },
   "BGN": { "code": "BGN", "name": "Bulgarian Lev" },
-  "BRL": { "code": "BRL", name": "Brazilian Real" },
+  "BRL": { "code": "BRL", "name": "Brazilian Real" },
   "CAD": { "code": "CAD", "name": "Canadian Dollar" },
   "CHF": { "code": "CHF", "name": "Swiss Franc" },
   "CNY": { "code": "CNY", "name": "Chinese Yuan" },
@@ -211,6 +211,17 @@ curl "https://specialfx.dev/USD/EUR/historical?amount=1000"
 ```
 
 **Note:** Some historical currency pairs may have `null` values for dates when the currency wasn't tracked or didn't exist.
+
+---
+
+## Pretty Print JSON
+
+For better readability, add the `pretty` query parameter to any endpoint to get formatted JSON responses.
+
+**Example:**
+```bash
+curl "https://specialfx.dev/USD/latest?amount=100&pretty"
+```
 
 ## Data Source
 
